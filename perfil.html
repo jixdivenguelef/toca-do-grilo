@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>O Meu Perfil — Toca do Grilo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous"/>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --red: #e81c1c;
+            --red-dark: #b81010;
+            --cream: #fff8f0;
+            --white: #ffffff;
+            --text: #1a1a1a;
+            --muted: #777;
+            --border: #f0e0d0;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Poppins', sans-serif; background: var(--cream); color: var(--text); min-height: 100vh; }
+
+        /* NAVBAR */
+        header { position: fixed; top: 0; left: 0; right: 0; z-index: 100; padding: 0 6%; background: rgba(255,255,255,0.95); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); height: 70px; display: flex; align-items: center; }
+        nav { width: 100%; display: flex; align-items: center; justify-content: space-between; }
+        .logo img { height: 52px; width: auto; display: block; }
+        .nav-actions { display: flex; align-items: center; gap: 10px; }
+        .btn-nav { background: var(--red); color: white; border: none; border-radius: 10px; padding: 10px 20px; font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 0.88rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px; }
+        .btn-nav:hover { background: var(--red-dark); }
+        .btn-outline-nav { background: transparent; color: var(--text); border: 2px solid var(--border); border-radius: 10px; padding: 8px 16px; font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 0.88rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px; text-decoration: none; }
+        .btn-outline-nav:hover { border-color: var(--red); color: var(--red); }
+
+        /* CONTENT */
+        .page { padding: 90px 6% 60px; max-width: 860px; margin: 0 auto; }
+
+        /* PERFIL CARD */
+        .perfil-card {
+            background: linear-gradient(135deg, var(--red) 0%, var(--red-dark) 100%);
+            border-radius: 20px;
+            padding: 28px 32px;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            margin-bottom: 28px;
+            box-shadow: 0 8px 32px rgba(232,28,28,0.25);
+        }
+        .perfil-avatar {
+            width: 72px; height: 72px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 2rem;
+            flex-shrink: 0;
+        }
+        .perfil-info { flex: 1; }
+        .perfil-nome { font-size: 1.4rem; font-weight: 800; }
+        .perfil-email { font-size: 0.85rem; opacity: 0.8; margin-top: 2px; }
+        .perfil-tipo { display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.2); border-radius: 20px; padding: 4px 12px; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 8px; }
+        .perfil-id { text-align: right; }
+        .perfil-id .id-label { font-size: 0.72rem; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px; }
+        .perfil-id .id-num { font-size: 2rem; font-weight: 800; letter-spacing: 2px; }
+
+        /* STATS */
+        .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 28px; }
+        .stat-mini { background: white; border-radius: 14px; padding: 18px; border: 1px solid var(--border); text-align: center; }
+        .stat-mini .val { font-size: 1.6rem; font-weight: 800; color: var(--red); }
+        .stat-mini .lbl { font-size: 0.78rem; color: var(--muted); font-weight: 600; margin-top: 2px; }
+
+        /* PEDIDOS */
+        .section-title { font-size: 1rem; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+        .pedido-card { background: white; border-radius: 14px; border: 1px solid var(--border); padding: 18px 20px; margin-bottom: 12px; transition: all 0.2s; }
+        .pedido-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+        .pedido-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+        .pedido-codigo { font-weight: 800; font-size: 1rem; }
+        .pedido-data { font-size: 0.78rem; color: var(--muted); font-weight: 500; }
+        .pedido-itens { font-size: 0.85rem; color: var(--muted); margin-bottom: 12px; line-height: 1.6; }
+        .pedido-bottom { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+        .pedido-total { font-weight: 800; font-size: 1.05rem; color: var(--red); }
+        .badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        .badge.pendente { background: #fff8ec; color: #7a5c00; border: 1px solid #f0d98a; }
+        .badge.confirmado { background: #f0fff4; color: #1a7a3a; border: 1px solid #c0f0d0; }
+        .badge.entregue { background: #f0f4ff; color: #1a3a7a; border: 1px solid #c0d0f0; }
+        .badge.cancelado { background: #fff0f0; color: var(--red); border: 1px solid #ffd0d0; }
+        .badge.cash { background: #f0fff4; color: #1a7a3a; }
+        .badge.transferencia { background: #f0f4ff; color: #1a3a7a; }
+
+        .empty-state { text-align: center; padding: 48px; color: var(--muted); background: white; border-radius: 14px; border: 1px solid var(--border); }
+        .empty-state i { font-size: 2.5rem; opacity: 0.3; display: block; margin-bottom: 12px; }
+        .empty-state p { font-weight: 600; }
+
+        .loading { text-align: center; padding: 40px; color: var(--muted); font-weight: 600; }
+
+        /* TOAST */
+        .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); background: #1a1a1a; color: white; padding: 12px 24px; border-radius: 12px; font-size: 0.88rem; font-weight: 600; z-index: 999; transition: transform 0.3s; }
+        .toast.visible { transform: translateX(-50%) translateY(0); }
+        .toast.error { background: var(--red); }
+
+        @media (max-width: 600px) {
+            .perfil-card { flex-direction: column; text-align: center; }
+            .perfil-id { text-align: center; }
+            .stats-row { grid-template-columns: repeat(3, 1fr); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+
+<header>
+    <nav>
+        <a href="index.html">
+            <img class="logo" src="https://raw.githubusercontent.com/jixdivenguelef/toca-do-grilo/main/toca_do_grilo_logo-removebg-preview.png" alt="Logo" style="height:52px;width:auto;display:block;" onerror="this.style.display='none'">
+        </a>
+        <div class="nav-actions">
+            <a href="index.html" class="btn-outline-nav"><i class="fa-solid fa-utensils"></i> Cardápio</a>
+            <button class="btn-nav" onclick="doLogout()"><i class="fa-solid fa-right-from-bracket"></i> Sair</button>
+        </div>
+    </nav>
+</header>
+
+<div class="page" id="page" style="display:none">
+
+    <!-- PERFIL CARD -->
+    <div class="perfil-card">
+        <div class="perfil-avatar" id="p_avatar"><i class="fa-solid fa-id-card"></i></div>
+        <div class="perfil-info">
+            <div class="perfil-nome" id="p_nome">—</div>
+            <div class="perfil-email" id="p_email">—</div>
+            <div class="perfil-tipo" id="p_tipo">—</div>
+        </div>
+        <div class="perfil-id">
+            <div class="id-label">ID</div>
+            <div class="id-num" id="p_id">#—</div>
+        </div>
+    </div>
+
+    <!-- STATS -->
+    <div class="stats-row">
+        <div class="stat-mini">
+            <div class="val" id="s_total">0</div>
+            <div class="lbl">Pedidos</div>
+        </div>
+        <div class="stat-mini">
+            <div class="val" id="s_entregues">0</div>
+            <div class="lbl">Entregues</div>
+        </div>
+        <div class="stat-mini">
+            <div class="val" id="s_gasto">0</div>
+            <div class="lbl">Kz gastos</div>
+        </div>
+    </div>
+
+    <!-- HISTÓRICO -->
+    <div class="section-title"><i class="fa-solid fa-clock-rotate-left"></i> Histórico de Encomendas</div>
+    <div id="pedidos_lista"><div class="loading"><i class="fa-solid fa-spinner fa-spin"></i> A carregar...</div></div>
+
+</div>
+
+<script>
+    const SUPABASE_URL = 'https://ijfcydzonjfnpttgdifa.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlqZmN5ZHpvbmpmbnB0dGdkaWZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MTE5NzIsImV4cCI6MjA5NTQ4Nzk3Mn0.ZiY1uldEwz3ykn5_ZBxJmL60tTJV8-tOFVcdMZd4Io8';
+    const { createClient } = supabase;
+    const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    function showToast(msg, type = '') {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast visible ' + type;
+        setTimeout(() => t.className = 'toast', 3000);
+    }
+
+    async function doLogout() {
+        await sb.auth.signOut();
+        window.location.href = 'login.html';
+    }
+
+    function formatData(iso) {
+        return new Date(iso).toLocaleDateString('pt-AO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    async function init() {
+        const { data } = await sb.auth.getSession();
+        if (!data.session) { window.location.href = 'login.html'; return; }
+
+        const user = data.session.user;
+        const meta = user.user_metadata || {};
+
+        // Preencher perfil
+        const tipo = meta.tipo || 'estudante';
+        document.getElementById('p_nome').textContent = meta.nome || user.email;
+        document.getElementById('p_email').textContent = user.email;
+        document.getElementById('p_tipo').innerHTML = tipo === 'pai'
+            ? '<i class="fa-solid fa-house-user"></i> Pai / Encarregado'
+            : '<i class="fa-solid fa-id-card"></i> Estudante';
+        document.getElementById('p_avatar').innerHTML = tipo === 'pai'
+            ? '<i class="fa-solid fa-house-user"></i>'
+            : '<i class="fa-solid fa-id-card"></i>';
+        document.getElementById('p_id').textContent = '#' + (meta.user_id || '—');
+
+        // Mostrar página
+        document.getElementById('page').style.display = 'block';
+
+        // Carregar pedidos
+        const { data: pedidos, error } = await sb.from('pedidos')
+            .select('*')
+            .eq('usuario_email', user.email)
+            .order('created_at', { ascending: false });
+
+        if (error) { showToast('Erro ao carregar pedidos', 'error'); return; }
+
+        // Stats
+        const total = pedidos.length;
+        const entregues = pedidos.filter(p => p.status === 'entregue').length;
+        const gasto = pedidos.reduce((s, p) => s + p.total, 0);
+        document.getElementById('s_total').textContent = total;
+        document.getElementById('s_entregues').textContent = entregues;
+        document.getElementById('s_gasto').textContent = gasto.toLocaleString('pt-AO');
+
+        // Lista de pedidos
+        const lista = document.getElementById('pedidos_lista');
+        if (!pedidos.length) {
+            lista.innerHTML = `<div class="empty-state"><i class="fa-solid fa-basket-shopping"></i><p>Ainda não fizeste nenhuma encomenda</p></div>`;
+            return;
+        }
+
+        lista.innerHTML = pedidos.map(p => {
+            const itens = Array.isArray(p.itens) ? p.itens.map(i => `${i.icon || ''} ${i.nome} x${i.qty}`).join(' · ') : '—';
+            return `
+            <div class="pedido-card">
+                <div class="pedido-top">
+                    <span class="pedido-codigo">${p.codigo}</span>
+                    <span class="pedido-data"><i class="fa-regular fa-clock"></i> ${formatData(p.created_at)}</span>
+                </div>
+                <div class="pedido-itens">${itens}</div>
+                <div class="pedido-bottom">
+                    <span class="pedido-total">${p.total.toLocaleString('pt-AO')} Kz</span>
+                    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                        <span class="badge ${p.metodo_pagamento}">${p.metodo_pagamento === 'cash' ? '💵 Cash' : '🏦 Transferência'}</span>
+                        <span class="badge ${p.status}">${p.status}</span>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    init();
+</script>
+</body>
+</html>
