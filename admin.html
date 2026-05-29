@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Admin — Toca do Grilo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous"/>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --red: #e81c1c;
+            --red-dark: #b81010;
+            --bg: #f5f4f0;
+            --white: #ffffff;
+            --text: #1a1a1a;
+            --muted: #777;
+            --border: #e8e6e0;
+            --sidebar: #1a1a1a;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Poppins', sans-serif; background: var(--bg); color: var(--text); }
+
+        /* ── LOGIN ── */
+        .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+        .login-card { background: white; border-radius: 20px; padding: 40px 36px; width: 100%; max-width: 400px; box-shadow: 0 8px 40px rgba(0,0,0,0.08); border: 1px solid var(--border); }
+        .login-logo { text-align: center; margin-bottom: 28px; }
+        .login-logo img { height: 80px; width: auto; }
+        .login-logo h2 { font-size: 1.2rem; font-weight: 800; margin-top: 10px; }
+        .login-logo p { font-size: 0.82rem; color: var(--muted); font-weight: 500; }
+        .login-field { margin-bottom: 16px; }
+        .login-field label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .login-field input { width: 100%; padding: 12px 16px; border: 2px solid var(--border); border-radius: 10px; font-family: 'Poppins', sans-serif; font-size: 0.95rem; outline: none; transition: border-color 0.2s; }
+        .login-field input:focus { border-color: var(--red); }
+        .btn-login { width: 100%; padding: 13px; background: var(--red); color: white; border: none; border-radius: 12px; font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 1rem; cursor: pointer; transition: all 0.2s; margin-top: 8px; box-shadow: 0 4px 16px rgba(232,28,28,0.3); }
+        .btn-login:hover { background: var(--red-dark); transform: translateY(-1px); }
+        .btn-login:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .login-error { background: #fff0f0; border: 1px solid #ffd0d0; color: var(--red); border-radius: 8px; padding: 10px 14px; font-size: 0.85rem; font-weight: 600; margin-bottom: 14px; display: none; }
+
+        /* ── LAYOUT ── */
+        .app { display: none; min-height: 100vh; }
+        .app.visible { display: flex; }
+
+        /* SIDEBAR */
+        .sidebar { width: 240px; background: var(--sidebar); color: white; display: flex; flex-direction: column; flex-shrink: 0; min-height: 100vh; position: fixed; top: 0; left: 0; z-index: 50; }
+        .sidebar-logo { padding: 24px 20px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; gap: 12px; }
+        .sidebar-logo img { height: 42px; width: auto; }
+        .sidebar-logo span { font-size: 0.9rem; font-weight: 700; line-height: 1.3; }
+        .sidebar-logo small { display: block; font-size: 0.72rem; color: rgba(255,255,255,0.45); font-weight: 500; }
+        .sidebar-nav { flex: 1; padding: 16px 0; }
+        .nav-link { display: flex; align-items: center; gap: 12px; padding: 12px 20px; color: rgba(255,255,255,0.6); font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: all 0.2s; border-left: 3px solid transparent; }
+        .nav-link:hover { color: white; background: rgba(255,255,255,0.06); }
+        .nav-link.active { color: white; border-left-color: var(--red); background: rgba(232,28,28,0.12); }
+        .nav-link i { width: 18px; text-align: center; }
+        .sidebar-footer { padding: 16px 20px; border-top: 1px solid rgba(255,255,255,0.08); }
+        .btn-logout-admin { display: flex; align-items: center; gap: 8px; color: rgba(255,255,255,0.5); font-size: 0.82rem; font-weight: 600; cursor: pointer; background: none; border: none; font-family: 'Poppins', sans-serif; transition: color 0.2s; }
+        .btn-logout-admin:hover { color: var(--red); }
+
+        /* MAIN */
+        .main { margin-left: 240px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+        .topbar { background: white; border-bottom: 1px solid var(--border); padding: 0 32px; height: 64px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 40; }
+        .topbar h1 { font-size: 1.1rem; font-weight: 700; }
+        .topbar-right { display: flex; align-items: center; gap: 12px; }
+        .topbar-date { font-size: 0.82rem; color: var(--muted); font-weight: 500; }
+        .btn-refresh { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; font-size: 0.82rem; font-weight: 600; cursor: pointer; font-family: 'Poppins', sans-serif; display: flex; align-items: center; gap: 6px; transition: all 0.2s; }
+        .btn-refresh:hover { border-color: var(--red); color: var(--red); }
+        .content { padding: 28px 32px; flex: 1; }
+
+        /* TABS */
+        .tab-section { display: none; }
+        .tab-section.active { display: block; }
+
+        /* STAT CARDS */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-bottom: 28px; }
+        .stat-card { background: white; border-radius: 14px; padding: 20px; border: 1px solid var(--border); }
+        .stat-card .s-label { font-size: 0.78rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+        .stat-card .s-value { font-size: 1.8rem; font-weight: 800; color: var(--text); }
+        .stat-card .s-sub { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
+        .stat-card.red .s-value { color: var(--red); }
+
+        /* TABELA PEDIDOS */
+        .card { background: white; border-radius: 14px; border: 1px solid var(--border); overflow: hidden; margin-bottom: 24px; }
+        .card-header { padding: 18px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+        .card-header h3 { font-size: 0.95rem; font-weight: 700; }
+        .filters { display: flex; gap: 8px; flex-wrap: wrap; }
+        .filter-btn { padding: 6px 14px; border-radius: 20px; border: 1.5px solid var(--border); background: white; font-family: 'Poppins', sans-serif; font-size: 0.78rem; font-weight: 600; color: var(--muted); cursor: pointer; transition: all 0.2s; }
+        .filter-btn.active, .filter-btn:hover { background: var(--red); color: white; border-color: var(--red); }
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: var(--bg); padding: 10px 16px; text-align: left; font-size: 0.75rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
+        td { padding: 12px 16px; border-top: 1px solid var(--border); font-size: 0.85rem; vertical-align: middle; }
+        tr:hover td { background: #fafaf8; }
+        .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        .badge.pendente { background: #fff8ec; color: #7a5c00; border: 1px solid #f0d98a; }
+        .badge.confirmado { background: #f0fff4; color: #1a7a3a; border: 1px solid #c0f0d0; }
+        .badge.entregue { background: #f0f4ff; color: #1a3a7a; border: 1px solid #c0d0f0; }
+        .badge.cancelado { background: #fff0f0; color: var(--red); border: 1px solid #ffd0d0; }
+        .badge.cash { background: #f0fff4; color: #1a7a3a; }
+        .badge.transferencia { background: #f0f4ff; color: #1a3a7a; }
+        .btn-sm { padding: 5px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: white; font-family: 'Poppins', sans-serif; transition: all 0.2s; display: inline-flex; align-items: center; gap: 4px; }
+        .btn-sm:hover { border-color: var(--red); color: var(--red); }
+        .btn-sm.green { border-color: #1a7a3a; color: #1a7a3a; }
+        .btn-sm.green:hover { background: #1a7a3a; color: white; }
+        .empty-state { text-align: center; padding: 48px; color: var(--muted); }
+        .empty-state i { font-size: 2rem; margin-bottom: 10px; display: block; opacity: 0.4; }
+
+        /* STOCK */
+        .stock-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+        .stock-card { background: white; border-radius: 14px; padding: 18px; border: 1px solid var(--border); display: flex; align-items: center; gap: 14px; }
+        .stock-icon { font-size: 2rem; width: 52px; height: 52px; background: var(--bg); border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .stock-info { flex: 1; }
+        .stock-nome { font-weight: 700; font-size: 0.9rem; }
+        .stock-bar-wrap { height: 6px; background: var(--border); border-radius: 4px; margin: 6px 0; overflow: hidden; }
+        .stock-bar { height: 100%; border-radius: 4px; background: var(--red); transition: width 0.3s; }
+        .stock-bar.ok { background: #1a7a3a; }
+        .stock-bar.baixo { background: #f0a800; }
+        .stock-nums { font-size: 0.78rem; color: var(--muted); font-weight: 600; }
+        .stock-edit { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+        .stock-input { width: 60px; padding: 5px 8px; border: 1.5px solid var(--border); border-radius: 6px; font-family: 'Poppins', sans-serif; font-size: 0.82rem; text-align: center; outline: none; }
+        .stock-input:focus { border-color: var(--red); }
+        .btn-stock-save { padding: 5px 10px; background: var(--red); color: white; border: none; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer; font-family: 'Poppins', sans-serif; transition: all 0.2s; }
+        .btn-stock-save:hover { background: var(--red-dark); }
+
+        /* CHARTS */
+        .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+        .chart-card { background: white; border-radius: 14px; padding: 20px; border: 1px solid var(--border); }
+        .chart-card h3 { font-size: 0.88rem; font-weight: 700; margin-bottom: 16px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+        /* TOAST */
+        .toast { position: fixed; bottom: 24px; right: 24px; background: #1a1a1a; color: white; padding: 12px 20px; border-radius: 10px; font-size: 0.85rem; font-weight: 600; z-index: 999; transform: translateY(80px); opacity: 0; transition: all 0.3s; box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
+        .toast.visible { transform: translateY(0); opacity: 1; }
+        .toast.success { background: #1a7a3a; }
+        .toast.error { background: var(--red); }
+
+        /* MODAL comprovativo */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 300; display: none; align-items: center; justify-content: center; padding: 24px; }
+        .modal-overlay.visible { display: flex; }
+        .modal { background: white; border-radius: 16px; padding: 28px; max-width: 500px; width: 100%; }
+        .modal h3 { font-size: 1rem; font-weight: 700; margin-bottom: 16px; }
+        .modal img { width: 100%; border-radius: 8px; border: 1px solid var(--border); }
+        .modal-actions { display: flex; gap: 10px; margin-top: 16px; justify-content: flex-end; }
+        .btn-modal { padding: 8px 18px; border-radius: 8px; font-size: 0.85rem; font-weight: 700; cursor: pointer; border: none; font-family: 'Poppins', sans-serif; }
+        .btn-modal.close { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+
+        @media (max-width: 900px) {
+            .sidebar { width: 200px; }
+            .main { margin-left: 200px; }
+            .charts-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 680px) {
+            .sidebar { display: none; }
+            .main { margin-left: 0; }
+            .content { padding: 20px 16px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+
+<!-- MODAL COMPROVATIVO -->
+<div class="modal-overlay" id="modal_overlay">
+    <div class="modal">
+        <h3 id="modal_title">Comprovativo</h3>
+        <img id="modal_img" src="" alt="comprovativo">
+        <div class="modal-actions">
+            <button class="btn-modal close" onclick="fecharModal()">Fechar</button>
+        </div>
+    </div>
+</div>
+
+<!-- LOGIN -->
+<div class="login-wrap" id="login_wrap">
+    <div class="login-card">
+        <div class="login-logo">
+            <img src="https://raw.githubusercontent.com/jixdivenguelef/toca-do-grilo/main/toca_do_grilo_logo-removebg-preview.png" alt="Logo" onerror="this.style.display='none'">
+            <h2>Painel Administrativo</h2>
+            <p>Toca do Grilo Kiosk</p>
+        </div>
+        <div class="login-error" id="login_error">Acesso negado ou credenciais incorretas.</div>
+        <div class="login-field">
+            <label>Email</label>
+            <input type="email" id="admin_email" placeholder="cantina@email.com" onkeydown="if(event.key==='Enter') doAdminLogin()">
+        </div>
+        <div class="login-field">
+            <label>Password</label>
+            <input type="password" id="admin_pass" placeholder="••••••••" onkeydown="if(event.key==='Enter') doAdminLogin()">
+        </div>
+        <button class="btn-login" id="btn_login_admin" onclick="doAdminLogin()">
+            <i class="fa-solid fa-lock-open"></i> Entrar no Painel
+        </button>
+    </div>
+</div>
+
+<!-- APP -->
+<div class="app" id="app">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <img src="https://raw.githubusercontent.com/jixdivenguelef/toca-do-grilo/main/toca_do_grilo_logo-removebg-preview.png" alt="Logo" onerror="this.style.display='none'">
+            <div>
+                <span>Toca do Grilo<small>Painel Admin</small></span>
+            </div>
+        </div>
+        <nav class="sidebar-nav">
+            <div class="nav-link active" onclick="mudarTab('dashboard')">
+                <i class="fa-solid fa-chart-line"></i> Dashboard
+            </div>
+            <div class="nav-link" onclick="mudarTab('pedidos')">
+                <i class="fa-solid fa-receipt"></i> Pedidos
+            </div>
+            <div class="nav-link" onclick="mudarTab('stock')">
+                <i class="fa-solid fa-boxes-stacked"></i> Stock
+            </div>
+            <div class="nav-link" onclick="mudarTab('estatisticas')">
+                <i class="fa-solid fa-chart-bar"></i> Estatísticas
+            </div>
+        </nav>
+        <div class="sidebar-footer">
+            <button class="btn-logout-admin" onclick="doAdminLogout()">
+                <i class="fa-solid fa-right-from-bracket"></i> Sair
+            </button>
+            <p style="font-size:0.68rem;color:rgba(255,255,255,0.25);margin-top:12px;">Dev: <span style="color:rgba(255,255,255,0.45);font-weight:600;">José Ferreira</span></p>
+        </div>
+    </aside>
+
+    <!-- MAIN -->
+    <div class="main">
+        <div class="topbar">
+            <h1 id="topbar_title">Dashboard</h1>
+            <div class="topbar-right">
+                <span class="topbar-date" id="topbar_date"></span>
+                <button class="btn-refresh" onclick="recarregarTudo()">
+                    <i class="fa-solid fa-rotate-right"></i> Atualizar
+                </button>
+            </div>
+        </div>
+
+        <div class="content">
+
+            <!-- DASHBOARD -->
+            <div class="tab-section active" id="tab_dashboard">
+                <div class="stats-grid">
+                    <div class="stat-card red">
+                        <div class="s-label"><i class="fa-solid fa-receipt"></i> Pedidos Hoje</div>
+                        <div class="s-value" id="stat_pedidos_hoje">—</div>
+                        <div class="s-sub">total do dia</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="s-label"><i class="fa-solid fa-clock"></i> Pendentes</div>
+                        <div class="s-value" id="stat_pendentes">—</div>
+                        <div class="s-sub">aguardam confirmação</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="s-label"><i class="fa-solid fa-money-bill-wave"></i> Receita Hoje</div>
+                        <div class="s-value" id="stat_receita">—</div>
+                        <div class="s-sub">em Kz</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="s-label"><i class="fa-solid fa-boxes-stacked"></i> Produtos Esgotados</div>
+                        <div class="s-value" id="stat_esgotados">—</div>
+                        <div class="s-sub">stock a zero</div>
+                    </div>
+                </div>
+
+                <!-- Últimos pedidos -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-clock"></i> Últimos Pedidos</h3>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr><th>Código</th><th>Itens</th><th>Total</th><th>Pagamento</th><th>Estado</th><th>Hora</th><th>Ações</th></tr></thead>
+                            <tbody id="tbody_recentes"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PEDIDOS -->
+            <div class="tab-section" id="tab_pedidos">
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-receipt"></i> Todos os Pedidos</h3>
+                        <div class="filters">
+                            <button class="filter-btn active" onclick="filtrarPedidos('todos', this)">Todos</button>
+                            <button class="filter-btn" onclick="filtrarPedidos('pendente', this)">Pendentes</button>
+                            <button class="filter-btn" onclick="filtrarPedidos('confirmado', this)">Confirmados</button>
+                            <button class="filter-btn" onclick="filtrarPedidos('entregue', this)">Entregues</button>
+                        </div>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr><th>Código</th><th>Itens</th><th>Total</th><th>Pagamento</th><th>Comprovativo</th><th>Estado</th><th>Data</th><th>Ações</th></tr></thead>
+                            <tbody id="tbody_pedidos"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STOCK -->
+            <div class="tab-section" id="tab_stock">
+                <div class="card" style="margin-bottom:20px">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-boxes-stacked"></i> Gerir Stock Diário</h3>
+                        <button class="btn-sm green" onclick="resetarTodoStock()">
+                            <i class="fa-solid fa-rotate-right"></i> Reset Geral
+                        </button>
+                    </div>
+                </div>
+                <div class="stock-grid" id="stock_grid"></div>
+            </div>
+
+            <!-- ESTATÍSTICAS -->
+            <div class="tab-section" id="tab_estatisticas">
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <h3><i class="fa-solid fa-trophy"></i> Produtos Mais Vendidos</h3>
+                        <canvas id="chart_mais_vendidos" height="220"></canvas>
+                    </div>
+                    <div class="chart-card">
+                        <h3><i class="fa-solid fa-credit-card"></i> Métodos de Pagamento</h3>
+                        <canvas id="chart_pagamentos" height="220"></canvas>
+                    </div>
+                </div>
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <h3><i class="fa-solid fa-chart-line"></i> Pedidos por Dia (últimos 7 dias)</h3>
+                        <canvas id="chart_por_dia" height="220"></canvas>
+                    </div>
+                    <div class="chart-card">
+                        <h3><i class="fa-solid fa-arrow-down"></i> Produtos Menos Vendidos</h3>
+                        <canvas id="chart_menos_vendidos" height="220"></canvas>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    const SUPABASE_URL = 'https://ijfcydzonjfnpttgdifa.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlqZmN5ZHpvbmpmbnB0dGdkaWZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MTE5NzIsImV4cCI6MjA5NTQ4Nzk3Mn0.ZiY1uldEwz3ykn5_ZBxJmL60tTJV8-tOFVcdMZd4Io8';
+    const { createClient } = supabase;
+    const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let todosOsPedidos = [];
+    let todoOStock = [];
+    let chartsInicializados = false;
+    let chartInstances = {};
+
+    // ── TOAST ──
+    function showToast(msg, type = '') {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast visible ' + type;
+        setTimeout(() => t.className = 'toast', 3000);
+    }
+
+    // ── LOGIN ──
+    async function doAdminLogin() {
+        const email = document.getElementById('admin_email').value.trim();
+        const pass = document.getElementById('admin_pass').value;
+        const err = document.getElementById('login_error');
+        const btn = document.getElementById('btn_login_admin');
+
+        if (!email || !pass) { err.style.display = 'block'; err.textContent = 'Preenche todos os campos!'; return; }
+
+        btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> A verificar...';
+
+        // Login no Supabase
+        const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+
+        if (error) {
+            err.style.display = 'block'; err.textContent = 'Email ou password incorretos.';
+            btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-lock-open"></i> Entrar no Painel';
+            return;
+        }
+
+        // Verificar se é admin
+        const { data: adminData } = await sb.from('admins').select('email').eq('email', email).single();
+
+        if (!adminData) {
+            await sb.auth.signOut();
+            err.style.display = 'block'; err.textContent = 'Não tens permissão para aceder ao painel.';
+            btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-lock-open"></i> Entrar no Painel';
+            return;
+        }
+
+        // Acesso autorizado
+        err.style.display = 'none';
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-lock-open"></i> Entrar no Painel';
+        document.getElementById('login_wrap').style.display = 'none';
+        document.getElementById('app').classList.add('visible');
+        inicializarApp();
+    }
+
+    async function doAdminLogout() {
+        await sb.auth.signOut();
+        document.getElementById('app').classList.remove('visible');
+        document.getElementById('login_wrap').style.display = 'flex';
+        document.getElementById('admin_email').value = '';
+        document.getElementById('admin_pass').value = '';
+    }
+
+    // Verificar sessão admin ao abrir
+    sb.auth.getSession().then(async ({ data }) => {
+        if (data.session) {
+            const email = data.session.user.email;
+            const { data: adminData } = await sb.from('admins').select('email').eq('email', email).single();
+            if (adminData) {
+                document.getElementById('login_wrap').style.display = 'none';
+                document.getElementById('app').classList.add('visible');
+                inicializarApp();
+            }
+        }
+    });
+
+    // ── TABS ──
+    function mudarTab(tab) {
+        document.querySelectorAll('.tab-section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+        document.getElementById('tab_' + tab).classList.add('active');
+        document.querySelectorAll('.nav-link').forEach(l => {
+            if (l.textContent.toLowerCase().includes(tab === 'dashboard' ? 'dashboard' : tab === 'pedidos' ? 'pedidos' : tab === 'stock' ? 'stock' : 'estat')) l.classList.add('active');
+        });
+        const titles = { dashboard: 'Dashboard', pedidos: 'Pedidos', stock: 'Stock', estatisticas: 'Estatísticas' };
+        document.getElementById('topbar_title').textContent = titles[tab];
+        if (tab === 'estatisticas' && !chartsInicializados) { carregarEstatisticas(); chartsInicializados = true; }
+    }
+
+    // ── DATA ──
+    function formatData(iso) {
+        const d = new Date(iso);
+        return d.toLocaleDateString('pt-AO') + ' ' + d.toLocaleTimeString('pt-AO', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function formatHora(iso) {
+        return new Date(iso).toLocaleTimeString('pt-AO', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    // ── CARREGAR DADOS ──
+    async function inicializarApp() {
+        const hoje = new Date().toLocaleDateString('pt-AO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        document.getElementById('topbar_date').textContent = hoje;
+        await Promise.all([carregarPedidos(), carregarStock()]);
+    }
+
+    async function recarregarTudo() {
+        showToast('A atualizar...', '');
+        chartsInicializados = false;
+        await Promise.all([carregarPedidos(), carregarStock()]);
+        const tabAtiva = document.querySelector('.tab-section.active');
+        if (tabAtiva && tabAtiva.id === 'tab_estatisticas') { carregarEstatisticas(); chartsInicializados = true; }
+        showToast('Atualizado!', 'success');
+    }
+
+    async function carregarPedidos() {
+        const { data, error } = await sb.from('pedidos').select('*').order('created_at', { ascending: false });
+        if (error) { showToast('Erro ao carregar pedidos', 'error'); return; }
+        todosOsPedidos = data || [];
+        renderDashboard();
+        renderPedidos(todosOsPedidos);
+    }
+
+    async function carregarStock() {
+        const { data, error } = await sb.from('produtos').select('*').order('id');
+        if (error) { showToast('Erro ao carregar stock', 'error'); return; }
+        todoOStock = data || [];
+        renderStock();
+    }
+
+    // ── DASHBOARD ──
+    function renderDashboard() {
+        const hoje = new Date().toISOString().split('T')[0];
+        const pedidosHoje = todosOsPedidos.filter(p => p.created_at.startsWith(hoje));
+        const pendentes = todosOsPedidos.filter(p => p.status === 'pendente').length;
+        const receita = pedidosHoje.reduce((s, p) => s + p.total, 0);
+        const esgotados = todoOStock.filter(p => p.stock_restante <= 0).length;
+
+        document.getElementById('stat_pedidos_hoje').textContent = pedidosHoje.length;
+        document.getElementById('stat_pendentes').textContent = pendentes;
+        document.getElementById('stat_receita').textContent = receita.toLocaleString('pt-AO') + ' Kz';
+        document.getElementById('stat_esgotados').textContent = esgotados;
+
+        renderTabelaPedidos('tbody_recentes', todosOsPedidos.slice(0, 10), true);
+    }
+
+    // ── PEDIDOS ──
+    function renderPedidos(lista) {
+        renderTabelaPedidos('tbody_pedidos', lista, false);
+    }
+
+    function renderTabelaPedidos(tbodyId, lista, resumido) {
+        const tbody = document.getElementById(tbodyId);
+        if (!lista.length) {
+            tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><i class="fa-solid fa-inbox"></i><p>Sem pedidos</p></div></td></tr>`;
+            return;
+        }
+        tbody.innerHTML = lista.map(p => {
+            const itens = Array.isArray(p.itens) ? p.itens.map(i => `${i.nome} x${i.qty}`).join(', ') : '—';
+            const hora = resumido ? formatHora(p.created_at) : formatData(p.created_at);
+            const compBtn = p.comprovativo_url
+                ? `<button class="btn-sm" onclick="verComprovativo('${p.comprovativo_url}', '${p.codigo}')"><i class="fa-solid fa-eye"></i> Ver</button>`
+                : `<span style="color:var(--muted);font-size:0.78rem">—</span>`;
+            return `<tr>
+                <td><strong>${p.codigo}</strong></td>
+                <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${itens}">${itens}</td>
+                <td><strong>${p.total.toLocaleString('pt-AO')} Kz</strong></td>
+                <td><span class="badge ${p.metodo_pagamento}">${p.metodo_pagamento === 'cash' ? '💵 Cash' : '🏦 Transf.'}</span></td>
+                ${resumido ? '' : `<td>${compBtn}</td>`}
+                <td><span class="badge ${p.status}">${p.status}</span></td>
+                <td style="white-space:nowrap">${hora}</td>
+                <td>
+                    <div style="display:flex;gap:4px;flex-wrap:wrap">
+                        ${p.status === 'pendente' ? `<button class="btn-sm green" onclick="mudarStatus('${p.id}', 'confirmado')"><i class="fa-solid fa-check"></i></button>` : ''}
+                        ${p.status === 'confirmado' ? `<button class="btn-sm" onclick="mudarStatus('${p.id}', 'entregue')"><i class="fa-solid fa-box"></i></button>` : ''}
+                        <button class="btn-sm" style="color:var(--red)" onclick="mudarStatus('${p.id}', 'cancelado')"><i class="fa-solid fa-x"></i></button>
+                    </div>
+                </td>
+            </tr>`;
+        }).join('');
+    }
+
+    function filtrarPedidos(status, btn) {
+        document.querySelectorAll('.filters .filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const lista = status === 'todos' ? todosOsPedidos : todosOsPedidos.filter(p => p.status === status);
+        renderPedidos(lista);
+    }
+
+    async function mudarStatus(id, novoStatus) {
+        const { error } = await sb.from('pedidos').update({ status: novoStatus }).eq('id', id);
+        if (error) { showToast('Erro ao atualizar', 'error'); return; }
+        showToast(`Pedido marcado como ${novoStatus}`, 'success');
+        await carregarPedidos();
+    }
+
+    // ── COMPROVATIVO ──
+    async function verComprovativo(path, codigo) {
+        const { data } = await sb.storage.from('comprovativos').createSignedUrl(path, 60);
+        if (!data) { showToast('Erro ao abrir comprovativo', 'error'); return; }
+        document.getElementById('modal_title').textContent = 'Comprovativo — ' + codigo;
+        document.getElementById('modal_img').src = data.signedUrl;
+        document.getElementById('modal_overlay').classList.add('visible');
+    }
+
+    function fecharModal() {
+        document.getElementById('modal_overlay').classList.remove('visible');
+    }
+
+    // ── STOCK ──
+    function renderStock() {
+        const grid = document.getElementById('stock_grid');
+        grid.innerHTML = todoOStock.map(p => {
+            const pct = p.stock_diario > 0 ? Math.round((p.stock_restante / p.stock_diario) * 100) : 0;
+            const barClass = pct > 40 ? 'ok' : pct > 15 ? 'baixo' : '';
+            return `
+            <div class="stock-card">
+                <div class="stock-icon">${p.icon}</div>
+                <div class="stock-info">
+                    <div class="stock-nome">${p.nome}</div>
+                    <div class="stock-bar-wrap"><div class="stock-bar ${barClass}" style="width:${pct}%"></div></div>
+                    <div class="stock-nums">${p.stock_restante} / ${p.stock_diario} restantes</div>
+                    <div class="stock-edit">
+                        <input class="stock-input" type="number" id="stock_${p.id}" value="${p.stock_diario}" min="0" max="999">
+                        <button class="btn-stock-save" onclick="salvarStock(${p.id})">Salvar</button>
+                        <button class="btn-sm green" onclick="resetarStock(${p.id}, document.getElementById('stock_${p.id}').value)">Reset</button>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    async function salvarStock(id) {
+        const novoVal = parseInt(document.getElementById('stock_' + id).value);
+        if (isNaN(novoVal) || novoVal < 0) { showToast('Valor inválido!', 'error'); return; }
+        const { error } = await sb.from('produtos').update({ stock_diario: novoVal }).eq('id', id);
+        if (error) { showToast('Erro ao salvar', 'error'); return; }
+        showToast('Stock diário atualizado!', 'success');
+        await carregarStock();
+    }
+
+    async function resetarStock(id, val) {
+        const novoVal = parseInt(val);
+        const { error } = await sb.from('produtos').update({ stock_restante: novoVal, stock_diario: novoVal }).eq('id', id);
+        if (error) { showToast('Erro ao resetar', 'error'); return; }
+        showToast('Stock resetado!', 'success');
+        await carregarStock();
+    }
+
+    async function resetarTodoStock() {
+        if (!confirm('Resetar o stock de TODOS os produtos?')) return;
+        for (const p of todoOStock) {
+            await sb.from('produtos').update({ stock_restante: p.stock_diario }).eq('id', p.id);
+        }
+        showToast('Todo o stock foi resetado!', 'success');
+        await carregarStock();
+    }
+
+    // ── ESTATÍSTICAS ──
+    function carregarEstatisticas() {
+        // Contagem por produto
+        const contagem = {};
+        todosOsPedidos.forEach(p => {
+            if (Array.isArray(p.itens)) {
+                p.itens.forEach(i => {
+                    contagem[i.nome] = (contagem[i.nome] || 0) + i.qty;
+                });
+            }
+        });
+        const sorted = Object.entries(contagem).sort((a, b) => b[1] - a[1]);
+        const mais = sorted.slice(0, 6);
+        const menos = sorted.slice(-6).reverse();
+
+        // Métodos de pagamento
+        const cash = todosOsPedidos.filter(p => p.metodo_pagamento === 'cash').length;
+        const transf = todosOsPedidos.filter(p => p.metodo_pagamento === 'transferencia').length;
+
+        // Pedidos por dia (últimos 7 dias)
+        const diasMap = {};
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date(); d.setDate(d.getDate() - i);
+            diasMap[d.toISOString().split('T')[0]] = 0;
+        }
+        todosOsPedidos.forEach(p => {
+            const dia = p.created_at.split('T')[0];
+            if (diasMap[dia] !== undefined) diasMap[dia]++;
+        });
+
+        const cores = ['#e81c1c','#ff6b6b','#ffa500','#25D366','#1a7a3a','#1a3a7a'];
+
+        // Destruir charts anteriores
+        Object.values(chartInstances).forEach(c => c.destroy());
+        chartInstances = {};
+
+        // Mais vendidos
+        if (mais.length) {
+            chartInstances.mais = new Chart(document.getElementById('chart_mais_vendidos'), {
+                type: 'bar',
+                data: { labels: mais.map(x => x[0]), datasets: [{ data: mais.map(x => x[1]), backgroundColor: cores, borderRadius: 6 }] },
+                options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+            });
+        }
+
+        // Pagamentos
+        chartInstances.pag = new Chart(document.getElementById('chart_pagamentos'), {
+            type: 'doughnut',
+            data: { labels: ['Cash', 'Transferência'], datasets: [{ data: [cash, transf], backgroundColor: ['#25D366', '#1a3a7a'], borderWidth: 0 }] },
+            options: { plugins: { legend: { position: 'bottom' } }, cutout: '65%' }
+        });
+
+        // Por dia
+        chartInstances.dia = new Chart(document.getElementById('chart_por_dia'), {
+            type: 'line',
+            data: {
+                labels: Object.keys(diasMap).map(d => new Date(d).toLocaleDateString('pt-AO', { weekday: 'short', day: 'numeric' })),
+                datasets: [{ data: Object.values(diasMap), borderColor: '#e81c1c', backgroundColor: 'rgba(232,28,28,0.08)', fill: true, tension: 0.4, pointBackgroundColor: '#e81c1c' }]
+            },
+            options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+        });
+
+        // Menos vendidos
+        if (menos.length) {
+            chartInstances.menos = new Chart(document.getElementById('chart_menos_vendidos'), {
+                type: 'bar',
+                data: { labels: menos.map(x => x[0]), datasets: [{ data: menos.map(x => x[1]), backgroundColor: '#f0e0d0', borderRadius: 6 }] },
+                options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+            });
+        }
+    }
+</script>
+</body>
+</html>
